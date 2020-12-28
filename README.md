@@ -1,0 +1,2 @@
+# MCMC-Metropolis-Hastings-posterior-estimation-of-paramters-in-predator-prey-ode-system
+I simulated data of prey-predator system described by Takeru etal (2018).  Takeru found that adding a small immigration factor (parameter in the ode problem) to the classical LV prey-predator system can yield asymptomatic stable solution.  The task here is  to use MCMC-MH algorithm to estimate posterior distributions of immigration parameters that are used for the data simulation
