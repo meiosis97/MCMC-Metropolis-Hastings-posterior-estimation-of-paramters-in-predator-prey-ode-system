@@ -1,0 +1,267 @@
+---
+title: "MCMC Metropolis-Hastings posterior estimation of paramters in predator-prey ode system"
+author: "Yidi Deng"
+date: "DEC, 28th, 2020"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  highlight: zenburn
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{mathtools}
+- \usepackage{xcolor, hyperref}
+- \usepackage{lipsum}
+- \setlength{\headheight}{28pt}
+- \setlength{\footsk;p}{25pt}
+- \pagestyle{fancy}
+- \renewcommand{\headrulewidth}{0.5pt}
+- \renewcommand{\footrulewidth}{0.5pt}
+- \lhead{\includegraphics[width=8cm,height=1cm]{logo-unimelb}}
+- \cfoot{\scriptsize School of Mathematics and Statistics,
+  Melbourne Integrative Genomics Bld 184 \\ The University of Melbourne, VIC 3010}
+- \rhead{\thepage}
+- \hypersetup{colorlinks   = true, linkcolor=blue, urlcolor  = blue}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+subtitle: Refer to Takeru etal 2018
+editor_options:
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+library(knitr)
+library(deSolve)
+library(ggplot2)
+# global options to show by default the code, dump the figures into /Figures etc
+knitr::opts_chunk$set(dpi = 100, 
+                      echo=TRUE, 
+                      warning=FALSE, message=FALSE, eval = TRUE,
+                      fig.show=TRUE, fig.width= 10,fig.height= 8,fig.align='center', out.width = '80%', fig.path= 'Figures/')
+```
+
+
+## Simulate data
+```{r}
+mod <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- (Prey > 0) * (r * Prey - a  * Prey * Predator + c)
+    
+    dPredator    <- (Predator > 0) * (b * Prey * Predator - m * Predator + d)
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+
+pars  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01,  #prey immigration rate 
+           d  = 0.005)   #predator immigration rate     
+
+
+times <- seq(0, 100, by = 1)
+
+
+yini <- c(Prey = 5, Predator = 5)
+
+
+out   <- rk(yini, times, mod, pars, method = 'rk45dp7')
+
+
+sd <-   min(out[,'Predator'])
+
+
+data <- out[,'Predator'] + rnorm(n = nrow(out), sd = sd)
+
+
+exclude <- which(data < 0) # exclude data with negative predator population
+
+
+times <- times[-exclude]; data <- data[-exclude]; out <- out[-exclude,]
+
+
+ggplot() + geom_path(data = data.frame(out), aes(time,Prey), color = 'orange', size = 1.2, linetype = 'dashed') + 
+           geom_path(data = data.frame(out), aes(time,Predator), color = 'steelblue2', size = 1.2) +
+           geom_point(aes(times,data), color = 'plum', size = 0.7) + theme_bw()
+
+
+ggplot() + geom_function(fun = function(x) pars['c']/pars['a']/x + pars['r']/pars['a'], n = 10000,
+                         color = 'orange', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_function(fun = function(x) -pars['d']/(pars['b']*x - pars['m']), n = 10000,
+                         color = 'steelblue2', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_path(data = data.frame(out),aes(Prey, Predator,col = times), size = 1) +
+           geom_point(data = data.frame(out),aes(Prey, Predator,col = times), size = 1.5) + 
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + theme_bw() + ylim(-0.0001,17)
+```
+
+## create MCMC
+```{r}
+
+Lprior.c <- function(c){
+  
+  dexp(c,rate = 1,log = T)
+  
+}
+
+
+Lprior.d <- function(d){
+  
+  dexp(d,rate = 1,log = T)
+  
+}
+
+
+Lprior <- list(c = Lprior.c, d = Lprior.d)
+
+
+Llikelihood <- function(data, c, d){
+  
+  pars  <- c(a   = 0.1,   #prey and predator encounter rate
+             r  = 0.1,    #birth rate of the prey
+             m  = 0.2,   #natural mortality rate of the predator
+             b  = 0.3,   #birth rate of the predator  
+             c  = as.numeric(c),  #prey immigration rate 
+             d  = as.numeric(d))   #predator immigration rate     
+
+
+  out   <- rk(yini, times, mod, pars, method = 'rk45dp7')
+
+  
+  out <- out[-exclude,]
+  
+  sum(dnorm(data, out[,'Predator'],sd,log = T))
+  
+}
+
+
+#proposal density is not needed as proposal is symmetric
+
+parini <- c(c = 0.5, d = 0.5)
+
+parold <- parnew <- parini
+
+chain <- data.frame(c = 0.5, d = 0.5)
+
+chain[1,] <- parini
+
+for(j in 1:3000){
+
+  for(i in c('c','d')){
+    
+  
+    parnew[i] <- parold[i] + runif(1,-0.01, 0.01)
+    
+    r <- min(exp(Llikelihood(data, parnew['c'], parnew['d'])  + Lprior[[i]](parnew[i]) 
+           - Llikelihood(data, parold['c'], parold['d']) + Lprior[[i]](parold[i])))
+    
+  
+      
+    if(runif(1) < r){
+      
+      parold[i] <- parnew[i]
+      
+    }else{
+      
+      parnew[i] <- parold[i]
+      
+    }
+    
+    
+  }
+  
+  
+  chain[1+j,] <- parold
+  
+  if(j%%50 == 0){
+    message(j)
+  }
+  
+}
+
+```
+plot out the chain
+```{r}
+ggplot() + geom_path(data = data.frame(chain), aes(1:3001,c, col = 'c'), size = 1.2) +
+           geom_path(data = data.frame(chain), aes(1:3001,d, col = 'd'), size = 1.2) + 
+           theme_bw() + xlab('iteration') + ylab('parameter value')
+
+```
+Chain converge after approximately 250 iterations. First 500 iterations, therefore, are burnt.
+```{r}
+chain.c <- chain[-(1:500),'c']
+
+chain.d <- chain[-(1:500),'d']
+
+
+ggplot() + geom_boxplot(aes('c', chain.c, col = 'c')) + 
+           geom_boxplot(aes('d', chain.d, col = 'd')) +
+           theme_bw() + xlab('parameter') + ylab('parameter value')
+
+
+
+ggplot() + geom_histogram(aes(chain.c), col = 'plum') + 
+           geom_vline(xintercept = 0.01, col = 'steelblue2',linetype = 'dashed')+
+           theme_bw() + xlab('c')
+
+
+ggplot() + geom_histogram(aes(chain.d), col = 'plum') + 
+           geom_vline(xintercept = 0.005, col = 'steelblue2',linetype = 'dashed')+
+           theme_bw() + xlab('d')
+
+```
+Auto correlation
+```{r}
+acf(chain.c,lag.max = 500)
+
+
+acf(chain.d,lag.max = 500)
+```
+Posterior predictive distribution (chain is not thinned, which might be a problem)
+```{r}
+post.prediction <- data.frame(out[,'Predator'])
+
+for(i in 1:1000){
+  post.c <- sample(chain.c,1)
+  
+  post.d <- sample(chain.d,1)
+  
+  post.pars  <- c(a   = 0.1,   #prey and predator encounter rate
+             r  = 0.1,    #birth rate of the prey
+             m  = 0.2,   #natural mortality rate of the predator
+             b  = 0.3,   #birth rate of the predator  
+             c  = post.c,  #prey immigration rate 
+             d  = post.d)   #predator immigration rate     
+  
+  post.out   <- rk(yini, times, mod, post.pars, method = 'rk45dp7')
+  
+  post.prediction <- cbind(post.prediction,post.out[,'Predator'] + rnorm(n = nrow(post.out), sd = sd))
+}
+
+post.prediction <- post.prediction[,-1]
+
+post.prediction[post.prediction < 0] <- 0
+
+
+ggplot() + geom_ribbon(aes(times,ymax = apply(post.prediction,1,max),
+                           ymin = apply(post.prediction,1,min)), fill = 'steelblue2', alpha = 0.5)  +
+           geom_ribbon(aes(times,ymax = apply(post.prediction,1,quantile,prob = 0.75),
+                           ymin = apply(post.prediction,1, quantile, prob = 0.25)), fill = 'steelblue', alpha = 0.8)  +
+           geom_path(aes(times,apply(post.prediction,1,max))) + geom_path(aes(times,apply(post.prediction,1,min))) +
+           geom_point(aes(times,data), size= 0.9) + theme_bw() + ylab('')
+
+
+```
+
+

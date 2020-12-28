@@ -1,0 +1,520 @@
+---
+title: "LV model Ordinary differential equation"
+author: "Yidi Deng"
+date: "DEC, 17th, 2020"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+  highlight: zenburn
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{mathtools}
+- \usepackage{xcolor, hyperref}
+- \usepackage{lipsum}
+- \setlength{\headheight}{28pt}
+- \setlength{\footsk;p}{25pt}
+- \pagestyle{fancy}
+- \renewcommand{\headrulewidth}{0.5pt}
+- \renewcommand{\footrulewidth}{0.5pt}
+- \lhead{\includegraphics[width=8cm,height=1cm]{logo-unimelb}}
+- \cfoot{\scriptsize MAST30033 Statistical Genomics | School of Mathematics and Statistics,
+  Melbourne Integrative Genomics Bld 184 \\ The University of Melbourne, VIC 3010}
+- \rhead{\thepage}
+- \hypersetup{colorlinks   = true, linkcolor=blue, urlcolor  = blue}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+subtitle: Critical evaluation of Takeru etal 2018
+editor_options:
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+library(knitr)
+library(deSolve)
+library(ggplot2)
+# global options to show by default the code, dump the figures into /Figures etc
+knitr::opts_chunk$set(dpi = 100, 
+                      echo=TRUE, 
+                      warning=FALSE, message=FALSE, eval = TRUE,
+                      fig.show=TRUE, fig.width= 10,fig.height= 8,fig.align='center', out.width = '80%', fig.path= 'Figures/')
+```
+
+
+## Stage 1: Classical Lotka-Volterra system
+
+```{r}
+
+LVmod1 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- r * Prey - a  * Prey * Predator 
+    
+    dPredator    <- b * Prey * Predator - m * Predator
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars1.1  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3)       #birth rate of the predator     
+
+
+times1.1 <- seq(0, 900, by = 0.1)
+
+
+yini1.1  <- c(Prey = 5, Predator = 5)
+
+
+out1.1   <- ode(yini1.1, times1.1, LVmod1, pars1.1, method = 'ode45')
+
+
+ggplot() + geom_line(aes(x = out1.1[,1], y = out1.1[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out1.1[,1], y = out1.1[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+
+```
+  
+Try different initial condition
+```{r}
+
+pars1.2  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.8,    #birth rate of the prey
+           m  = 0.5,   #natural mortality rate of the predator
+           b  = 0.2)       #birth rate of the predator     
+
+yini1.2.1  <- c(Prey = 5, Predator = 1)
+yini1.2.2  <- c(Prey = 5, Predator = 2)
+yini1.2.3  <- c(Prey = 5, Predator = 3)
+yini1.2.4  <- c(Prey = 5, Predator = 4)
+yini1.2.5  <- c(Prey = 5, Predator = 5)
+
+
+out1.2.1   <- ode(yini1.2.1, times1.1, LVmod1, pars1.2)
+out1.2.2   <- ode(yini1.2.2, times1.1, LVmod1, pars1.2)
+out1.2.3   <- ode(yini1.2.3, times1.1, LVmod1, pars1.2)
+out1.2.4   <- ode(yini1.2.4, times1.1, LVmod1, pars1.2)
+out1.2.5   <- ode(yini1.2.5, times1.1, LVmod1, pars1.2)
+
+
+
+
+ggplot() + geom_path(aes(x = out1.2.1[,2], y = out1.2.1[,3], alpha = 0.8, color = 'y0 = 1'), size = 2) + 
+           geom_path(aes(x = out1.2.2[,2], y = out1.2.2[,3], alpha = 0.8, color = 'y0 = 2'), size = 2) + 
+           geom_path(aes(x = out1.2.3[,2], y = out1.2.3[,3], alpha = 0.8, color = 'y0 = 3'), size = 2) + 
+           geom_path(aes(x = out1.2.4[,2], y = out1.2.4[,3], alpha = 0.8, color = 'y0 = 4'), size = 2) + 
+           geom_path(aes(x = out1.2.5[,2], y = out1.2.5[,3], alpha = 0.8, color = 'y0 = 5'), size = 2) + 
+           scale_alpha(guide = F) + xlab('Prey') + ylab('Predator') + 
+           geom_vline(xintercept = 0, color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = pars1.2['r']/pars1.2['a'], color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed') +
+           geom_vline(xintercept = pars1.2['m']/pars1.2['b'], color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = 0, color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + scale_color_discrete('')
+
+
+            
+```
+
+
+## Stage 2: Modified Lotka-Volterra system with immigrants introduced.
+Modified LV system with constant prey immigration. 
+```{r}
+LVmod2.1 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- r * Prey - a  * Prey * Predator + c
+    
+    dPredator    <- b * Prey * Predator - m * Predator
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars2.1  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01)   #immigration rate     
+
+
+times2.1 <- seq(0, 900, by = 0.1)
+
+
+yini2.1  <- c(Prey = 5, Predator = 5)
+
+
+out2.1   <- ode(yini2.1, times2.1, LVmod2.1, pars2.1, method = 'ode45')
+
+
+
+ggplot() + geom_function(fun = function(x) pars2.1['c']/pars2.1['a']/x + pars2.1['r']/pars2.1['a'], n = 100000,
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_vline(xintercept = pars2.1['m']/pars2.1['b'], 
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = 0, color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out2.1[,2], y = out2.1[,3], color = times2.1),size = 1) + 
+           geom_point(aes(x = out2.1[,2], y = out2.1[,3], color = times2.1),size = 1.5) +
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + xlab('Prey') + ylab('Predator')
+
+
+
+ggplot() + geom_line(aes(x = out2.1[,1], y = out2.1[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out2.1[,1], y = out2.1[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+
+```
+Modified LV system with predator immigration restrained by population capacity.
+```{r}
+LVmod2.2 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- r * Prey - a  * Prey * Predator 
+    
+    dPredator    <- b * Prey * Predator - m * Predator + d/Predator
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars2.2  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           d  = 0.01)   #immigration rate     
+
+
+times2.2 <- seq(0, 900, by = 0.1)
+
+
+yini2.2  <- c(Prey = 5, Predator = 5)
+
+
+out2.2   <- ode(yini2.2, times2.2, LVmod2.2, pars2.2, method = 'ode45')
+
+
+
+ggplot() + geom_function(fun = function(x) sqrt(-pars2.2['d']/(pars2.2['b']*x-pars2.2['m'])), n = 100000,
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_hline(yintercept = pars2.2['r']/pars2.2['a'], 
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_vline(xintercept = 0, color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out2.2[,2], y = out2.2[,3], color = times2.2),size = 1) + 
+           geom_point(aes(x = out2.2[,2], y = out2.2[,3], color = times2.2),size = 1.5) + ylim(c(0,16)) + 
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + xlab('Prey') + ylab('Predator')
+
+
+
+ggplot() + geom_line(aes(x = out2.2[,1], y = out2.2[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out2.2[,1], y = out2.2[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+```
+Modified/unmodified type2 LV system with constant prey immigration.
+```{r}
+LVmod2.3 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- r * Prey - a  * Prey^(1+alpha) * Predator/ (1 + h * Prey^(1+alpha)) + c
+    
+    dPredator    <- b * Prey^(1+alpha) * Predator/ (1 + h * Prey^(1+alpha)) - m * Predator
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars2.3.1  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0,  #immigration rate 
+           h  = 0.1,   # time needed for the predator to handle a food in average
+           alpha = 0)  # type two system
+
+pars2.3.2  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01,  #immigration rate 
+           h  = 0.1,   # time needed for the predator to handle a food in average
+           alpha = 0)  # type two system
+
+
+
+times2.3.1 <- seq(0, 1000, by = 0.1)
+
+times2.3.2 <- seq(0, 10000, by = 0.1)
+
+
+
+yini2.3  <- c(Prey = 5, Predator = 5)
+
+
+out2.3.1   <- ode(yini2.3, times2.3.1, LVmod2.3, pars2.3.1, method = 'ode45')
+
+
+out2.3.2   <- ode(yini2.3, times2.3.2, LVmod2.3, pars2.3.2, method = 'ode45')
+
+
+ggplot() + geom_line(aes(x = out2.3.1[,1], y = out2.3.1[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out2.3.1[,1], y = out2.3.1[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+
+
+ggplot() + geom_line(aes(x = out2.3.2[,1], y = out2.3.2[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out2.3.2[,1], y = out2.3.2[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+```
+Modified/unmodified type3 LV system with constant prey immigration.
+```{r}
+
+pars2.3.3  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0,  #immigration rate 
+           h  = 0.1,   # time needed for the predator to handle a food in average
+           alpha = 1)  # type three system
+
+pars2.3.4  <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01,  #immigration rate 
+           h  = 0.1,   # time needed for the predator to handle a food in average
+           alpha = 1)  # type three system
+
+
+
+times2.3.3 <- seq(0, 1000, by = 0.1)
+
+times2.3.4 <- seq(0, 1000, by = 0.1)
+
+
+
+out2.3.3   <- ode(yini2.3, times2.3.3, LVmod2.3, pars2.3.3, method = 'ode45')
+
+
+out2.3.4   <- ode(yini2.3, times2.3.4, LVmod2.3, pars2.3.4, method = 'ode45')
+
+
+
+ggplot() + geom_line(aes(x = out2.3.3[,1], y = out2.3.3[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out2.3.3[,1], y = out2.3.3[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+
+
+
+ggplot() + geom_line(aes(x = out2.3.4[,1], y = out2.3.4[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out2.3.4[,1], y = out2.3.4[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+```
+
+## Stage 3: Modified Lotka-Volterra system with migrant introduced.
+Modified LV system with constant prey migration
+```{r}
+LVmod3.1 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- ifelse(Prey >= 0, r * Prey - a  * Prey * Predator - c, 0) 
+    
+    dPredator    <- b * Prey * Predator - m * Predator 
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars3.1 <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01)   #migration rate   
+
+
+
+times3.1 <- seq(0, 1000, by = 0.1)
+
+
+yini3.1  <- c(Prey = 5, Predator = 5)
+
+
+out3.1   <- ode(yini3.1, times3.1, LVmod3.1, pars3.1, method = 'ode45')
+
+
+
+ggplot() + geom_function(fun = function(x) -pars3.1['c']/pars3.1['a']/x + pars3.1['r']/pars3.1['a'], n = 100000,
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_vline(xintercept = pars3.1['m']/pars3.1['b'], 
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = 0, color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out3.1[,2], y = out3.1[,3], color = times3.1),size = 1) + 
+           geom_point(aes(x = out3.1[,2], y = out3.1[,3], color = times3.1),size = 1.5) +
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + 
+           xlab('Prey') + ylab('Predator') + ylim(0,16)
+
+
+
+ggplot() + geom_line(aes(x = out3.1[,1], y = out3.1[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out3.1[,1], y = out3.1[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+
+
+```
+Modified LV system with constant predator migration
+```{r}
+LVmod3.2 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- r * Prey - a  * Prey * Predator 
+    
+    dPredator    <- ifelse(Predator >=0 ,b * Prey * Predator - m * Predator - d, 0)
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars3.2 <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           d  = 0.01)   #migration rate   
+
+
+
+times3.2 <- seq(0, 250, by = 0.1)
+
+
+yini3.2  <- c(Prey = 1, Predator = 1)
+
+
+out3.2   <- ode(yini3.2, times3.2, LVmod3.2, pars3.2, method = 'ode45')
+
+
+
+
+ggplot() + geom_function(fun = function(x) sqrt(pars3.2['d']/(pars3.2['b']*x-pars3.2['m'])), n = 100000,
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_hline(yintercept = pars3.2['r']/pars3.2['a'], 
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_vline(xintercept = 0, color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out3.2[,2], y = out3.2[,3], color = times3.2),size = 1) + 
+           geom_point(aes(x = out3.2[,2], y = out3.2[,3], color = times3.2),size = 1.5) + ylim(c(-0.001,5))+
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + xlab('Prey') + ylab('Predator')
+
+
+
+ggplot() + geom_line(aes(x = out3.2[,1], y = out3.2[,3],  col ='Predator', alpha = 0.8), size = 1.5) + 
+           geom_line(aes(x = out3.2[,1], y = out3.2[,2],  col ='Prey', alpha = 0.8), size = 1.5, linetype = 'dashed') + 
+           scale_alpha(guide = F) + xlab('time') + ylab('population') + 
+           scale_color_manual(name = '',values = c('steelblue2','orange'))
+
+
+```
+
+## Stage 4: Modified Lotka-Volterra system with both immigrant and migrant introduced to prey population.
+
+```{r}
+LVmod4 <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+
+    dPrey        <- ifelse(Prey >= 0, r * Prey - a  * Prey * Predator + c / Prey - i, 0) 
+    
+    dPredator    <- b * Prey * Predator - m * Predator 
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+
+pars4.1 <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01,   #immigration rate
+           i  = 0.05)   #migration rate
+
+pars4.2 <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01,   #immigration rate
+           i  = 0.1)   #migration rate
+
+pars4.3 <- c(a   = 0.1,   #prey and predator encounter rate
+           r  = 0.1,    #birth rate of the prey
+           m  = 0.2,   #natural mortality rate of the predator
+           b  = 0.3,   #birth rate of the predator  
+           c  = 0.01,   #immigration rate
+           i  = 0.01)   #migration rate
+
+
+times4<- seq(0, 1000, by = 0.1)
+
+
+yini4  <- c(Prey = 2, Predator = 2.5)
+
+
+
+out4.1   <- ode(yini4, times4, LVmod4, pars4.1, method = 'ode45')
+
+out4.2   <- ode(yini4, times4, LVmod4, pars4.2, method = 'ode45')
+
+out4.3   <- ode(yini4, times4, LVmod4, pars4.3, method = 'ode45')
+
+
+
+ggplot() + geom_function(fun = function(x) pars4.1['r']/pars4.1['a'] + (pars4.1['c']/x - pars4.1['i'])/(pars4.1['a'] * x), n = 100000,
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_vline(xintercept = pars4.2['m']/pars4.2['b'], 
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = 0, color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out4.1[,2], y = out4.1[,3], color = times4),size = 1) + 
+           geom_point(aes(x = out4.1[,2], y = out4.1[,3], color = times4),size = 1.5) + ylim(c(-0.001,5))+
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + xlab('Prey') + ylab('Predator')
+
+
+
+
+ggplot() + geom_function(fun = function(x) pars4.2['r']/pars4.2['a'] + (pars4.2['c']/x - pars4.2['i'])/(pars4.2['a'] * x), n = 100000,
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_vline(xintercept = pars4.2['m']/pars4.2['b'], 
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = 0, color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out4.2[,2], y = out4.2[,3], color = times4),size = 1) + 
+           geom_point(aes(x = out4.2[,2], y = out4.2[,3], color = times4),size = 1.5) + ylim(c(-0.001,5))+ xlim(0,2)+
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + xlab('Prey') + ylab('Predator')
+
+
+
+ggplot() + geom_function(fun = function(x) pars4.3['r']/pars4.3['a'] + (pars4.3['c']/x - pars4.3['i'])/(pars4.3['a'] * x), n = 100000,
+                         color = '#F8766D', size = 1.5, alpha = 0.5, linetype = 'dashed')+
+           geom_vline(xintercept = pars4.3['m']/pars4.3['b'], 
+                         color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_hline(yintercept = 0, color = '#00BFC4', size = 1.5, alpha = 0.5, linetype = 'dashed') + 
+           geom_path(aes(x = out4.3[,2], y = out4.3[,3], color = times4),size = 1) + 
+           geom_point(aes(x = out4.3[,2], y = out4.3[,3], color = times4),size = 1.5) + ylim(c(-0.001,5))+ xlim(0,2)+
+           scale_color_gradientn(name = 'time', colours = terrain.colors(10)) + xlab('Prey') + ylab('Predator')
+
+
+```
+
